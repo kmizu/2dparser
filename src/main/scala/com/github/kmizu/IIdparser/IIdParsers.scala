@@ -1,23 +1,25 @@
 package com.github.kmizu.IIdparser
 
+import scala.collection.mutable
+
 /**
   * Created by kota_mizushima on 2016/09/26.
   */
 abstract class IIdParsers {
-  val mapping: Array[Array[String]]
+  val mapping: Array[Array[Char]]
   case class Point(x: Int, y: Int)
   case class ~[+A, +B](_1: A, _2: B)
 
   def inRange(x: Int, y: Int): Boolean = {
     0 <= x && x < mapping.length &&
-    0 <= y && y < mapping.length
+    0 <= y && y < mapping(0).length
   }
 
   abstract sealed class ParseResult[+T]
-  case class ParseSuccess[T](value: T, next: Point) extends ParseResult
+  case class ParseSuccess[T](value: T, next: Point) extends ParseResult[T]
   case object ParseFailure extends ParseResult[Nothing]
 
-  abstract class Parser[+T] {
+  abstract class Parser[+T] {self =>
     def apply(input: Point): ParseResult[T]
     def /[U >: T](other: Parser[U]): Parser[U] = parserOf{input =>
       this(input) match {
@@ -37,13 +39,25 @@ abstract class IIdParsers {
         case ParseFailure => ParseFailure
       }
     }
+    def * : Parser[List[T]] = parserOf{input =>
+      def repeat(rest: Point, buffer: mutable.Buffer[T]): ParseResult[List[T]] = {
+        this(rest) match {
+          case ParseSuccess(value, next) =>
+            buffer.append(value)
+            repeat(next, buffer)
+          case ParseFailure =>
+            ParseSuccess(buffer.toList, rest)
+        }
+      }
+      repeat(input, mutable.Buffer[T]())
+    }
   }
 
   def parserOf[T](block: Point => ParseResult[T]): Parser[T] = new Parser[T] {
     def apply(input: Point): ParseResult[T] = block(input)
   }
 
-  def up(content: String): Parser[String] = parserOf{input =>
+  def up(content: Char): Parser[Char] = parserOf{input =>
     val newX = input.x
     val newY = input.y - 1
     if(inRange(newX, newY) && mapping(newX)(newY) == content) {
@@ -53,7 +67,17 @@ abstract class IIdParsers {
     }
   }
 
-  def down(content: String): Parser[String] = parserOf{input =>
+  def upAny: Parser[Char] = parserOf{input =>
+    val newX = input.x
+    val newY = input.y - 1
+    if(inRange(newX, newY)) {
+      ParseSuccess(mapping(newX)(newY), Point(newX, newY))
+    }else {
+      ParseFailure
+    }
+  }
+
+  def down(content: Char): Parser[Char] = parserOf{input =>
     val newX = input.x
     val newY = input.y + 1
     if(inRange(newX, newY) && mapping(newX)(newY) == content) {
@@ -63,7 +87,17 @@ abstract class IIdParsers {
     }
   }
 
-  def right(content: String): Parser[String] = parserOf{input =>
+  def downAny: Parser[Char] = parserOf{input =>
+    val newX = input.x
+    val newY = input.y + 1
+    if(inRange(newX, newY)) {
+      ParseSuccess(mapping(newX)(newY), Point(newX, newY))
+    }else {
+      ParseFailure
+    }
+  }
+
+  def right(content: Char): Parser[Char] = parserOf{input =>
     val newX = input.x + 1
     val newY = input.y
     if(inRange(newX, newY) && mapping(newX)(newY) == content) {
@@ -73,10 +107,29 @@ abstract class IIdParsers {
     }
   }
 
-  def left(content: String): Parser[String] = parserOf{input =>
+  def rightAny: Parser[Char] = parserOf{input =>
+    val newX = input.x + 1
+    val newY = input.y
+    if(inRange(newX, newY)) {
+      ParseSuccess(mapping(newX)(newY), Point(newX, newY))
+    }else {
+      ParseFailure
+    }
+  }
+
+  def left(content: Char): Parser[Char] = parserOf{input =>
     val newX = input.x - 1
     val newY = input.y
     if(inRange(newX, newY) && mapping(newX)(newY) == content) {
+      ParseSuccess(mapping(newX)(newY), Point(newX, newY))
+    }else {
+      ParseFailure
+    }
+  }
+  def leftAny: Parser[Char] = parserOf{input =>
+    val newX = input.x - 1
+    val newY = input.y
+    if(inRange(newX, newY)) {
       ParseSuccess(mapping(newX)(newY), Point(newX, newY))
     }else {
       ParseFailure
