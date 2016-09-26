@@ -1,6 +1,6 @@
 organization := "com.github.kmizu"
 
-name := "2dparser"
+name := "IIdparser"
 
 version := "0.0.1-SNAPSHOT"
 
